@@ -44,7 +44,7 @@
     reader.onerror = function () { setMsg($("import-errors"), ["The file could not be read."]); };
     reader.onload = function () {
       var text = String(reader.result || "");
-      if (text.indexOf("�") !== -1) {
+      if (text.indexOf("\uFFFD") !== -1) {
         // Probably not UTF-8 (e.g. Windows-1256 Arabic). Retry with that encoding.
         var r2 = new FileReader();
         r2.onload = function () { handleText(String(r2.result || ""), file.name, true); };
