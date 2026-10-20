@@ -1,0 +1,205 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FWA Medication Claim Review</title>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<header class="site-header">
+  <div class="wrap">
+    <h1>FWA Medication Claim Review</h1>
+    <p class="subtitle">Compare a billed medication claim with the SFDA public price list and the prescription as written.</p>
+    <div class="notice" role="note">
+      <strong>Audit aid only.</strong> Results are review flags, not findings of fraud, waste or abuse, and not clinical advice.
+      This tool does not diagnose, prescribe, or judge whether a regimen is clinically appropriate. Refer clinical questions to a clinician or pharmacist.
+    </div>
+    <div class="notice privacy" role="note">
+      <strong>Privacy:</strong> everything runs inside this browser tab. No claim data is sent anywhere.
+      Claim details are <strong>not saved</strong>: they are lost when you reload or close the page.
+      An imported price list is kept only if you tick &ldquo;Remember this price list&rdquo; (stored in this browser on this device only).
+    </div>
+  </div>
+</header>
+
+<main class="wrap layout">
+  <div class="col-form">
+
+    <!-- ============ 1. SFDA price list ============ -->
+    <section class="card" id="import-section" aria-labelledby="import-h">
+      <h2 id="import-h"><span class="tag tag-source">Official source data</span> 1. SFDA price list</h2>
+      <details class="howto">
+        <summary>How to get the SFDA list</summary>
+        <ol>
+          <li>Open the SFDA Drugs List: <a href="https://www.sfda.gov.sa/en/drugs-list" target="_blank" rel="noopener noreferrer">sfda.gov.sa/en/drugs-list</a> (on the SFDA site, also reachable from the &ldquo;Information Lists&rdquo; menu, then &ldquo;Drugs&rdquo;).</li>
+          <li>Download the list (SFDA provides it as an Excel file). Note the update date shown by SFDA, or the date you downloaded it.</li>
+          <li>Open it in Excel or LibreOffice and choose <em>Save As &rarr; CSV UTF-8 (comma delimited)</em>.</li>
+          <li>Import the CSV below and check the column mapping.</li>
+        </ol>
+        <p class="muted">This tool has no built-in SFDA data and does not download from SFDA automatically, so you always know which file and date the prices came from. Check the SFDA website for its terms of use.</p>
+      </details>
+
+      <div class="field">
+        <label for="csv-file">CSV file</label>
+        <input type="file" id="csv-file" accept=".csv,.tsv,.txt,text/csv">
+      </div>
+      <div id="import-errors" class="msg msg-error" hidden></div>
+
+      <div id="mapping" hidden>
+        <h3>Column mapping</h3>
+        <p class="muted">Columns were matched automatically by header name. Check each one and correct it if needed. Fields marked * are required.</p>
+        <div id="mapping-grid" class="mapping-grid"></div>
+        <h3>Preview (first rows)</h3>
+        <div class="table-scroll"><table id="preview-table" class="data"></table></div>
+        <div class="grid-2">
+          <div class="field">
+            <label for="list-date">SFDA list update date or download date *</label>
+            <input type="date" id="list-date">
+          </div>
+          <div class="field">
+            <label for="list-url">Source link</label>
+            <input type="url" id="list-url" value="https://www.sfda.gov.sa/en/drugs-list">
+          </div>
+        </div>
+        <div id="mapping-warnings" class="msg msg-warn" hidden></div>
+        <button type="button" id="btn-import" class="btn btn-primary">Import price list</button>
+      </div>
+
+      <div id="list-status" class="list-status" hidden>
+        <p id="list-status-text"></p>
+        <label class="check"><input type="checkbox" id="remember-list"> Remember this price list in this browser (no claim data is stored)</label>
+        <button type="button" id="btn-clear-list" class="btn btn-small">Remove imported list</button>
+      </div>
+    </section>
+
+    <!-- ============ 2. Claim review form ============ -->
+    <form id="review-form" class="card" novalidate autocomplete="off" aria-labelledby="form-h">
+      <h2 id="form-h">2. Claim review</h2>
+      <p class="muted">Results update as you type. <span class="req-key">*</span> marks a field needed for at least one calculation; each result shows exactly what it needs.</p>
+
+      <fieldset>
+        <legend>Medication <span class="tag tag-source">SFDA data</span> <span class="tag tag-claim">or manual entry</span></legend>
+        <div class="field search-field">
+          <label for="med-search">Search imported SFDA list</label>
+          <input type="search" id="med-search" placeholder="Import a CSV first" disabled aria-controls="search-results">
+          <ul id="search-results" class="search-results" role="listbox" hidden></ul>
+        </div>
+        <div id="selected-record" class="selected-record" hidden></div>
+        <div class="grid-2">
+          <div class="field"><label for="medName">Medication (trade) name * <span class="prov" data-for="medName"></span></label><input id="medName" name="medName"></div>
+          <div class="field"><label for="activeIngredient">Active ingredient <span class="prov" data-for="activeIngredient"></span></label><input id="activeIngredient" name="activeIngredient"></div>
+          <div class="field"><label for="strengthText">Strength (as listed) <span class="prov" data-for="strengthText"></span></label><input id="strengthText" name="strengthText" placeholder="e.g. 500 mg"></div>
+          <div class="field"><label for="dosageForm">Dosage form <span class="prov" data-for="dosageForm"></span></label><input id="dosageForm" name="dosageForm" placeholder="e.g. Film-coated tablet"></div>
+          <div class="field"><label for="packSize">Pack size (units per pack) * <span class="prov" data-for="packSize"></span></label><input id="packSize" name="packSize" inputmode="decimal"><small class="hint" id="packSize-raw"></small></div>
+          <div class="field"><label for="unitLabel">Unit name</label>
+            <select id="unitLabel" name="unitLabel">
+              <option value="units">units</option><option value="tablets">tablets</option><option value="capsules">capsules</option>
+              <option value="mL">mL</option><option value="sachets">sachets</option><option value="ampoules/vials">ampoules/vials</option>
+              <option value="doses">doses (e.g. inhaler puffs)</option>
+            </select></div>
+          <div class="field"><label for="pricePerPack">SFDA price per pack (SAR) * <span class="prov" data-for="pricePerPack"></span></label><input id="pricePerPack" name="pricePerPack" inputmode="decimal"></div>
+          <div class="field"><label for="priceSourceDate">Price list update / download date * <span class="prov" data-for="priceSourceDate"></span></label><input id="priceSourceDate" name="priceSourceDate" placeholder="YYYY-MM-DD"></div>
+        </div>
+      </fieldset>
+
+      <fieldset>
+        <legend>Billed by provider <span class="tag tag-claim">Claim data</span></legend>
+        <div class="field">
+          <span class="label">Quantity billed as</span>
+          <div class="radio-row">
+            <label class="check"><input type="radio" name="billedMode" value="packs" checked> Packs</label>
+            <label class="check"><input type="radio" name="billedMode" value="units"> Individual units</label>
+          </div>
+        </div>
+        <div class="grid-2">
+          <div class="field"><label for="billedQty">Quantity billed *</label><input id="billedQty" name="billedQty" inputmode="decimal"></div>
+          <div class="field"><label for="billedAmount">Amount billed (SAR)</label><input id="billedAmount" name="billedAmount" inputmode="decimal"><small class="hint">Needed only for the price comparison.</small></div>
+        </div>
+      </fieldset>
+
+      <fieldset>
+        <legend>Prescription as written <span class="tag tag-claim">Claim data</span></legend>
+        <p class="muted small">Enter only what the prescription states. Leave a field empty if it is not stated &mdash; the tool will not guess it.</p>
+        <div class="field">
+          <span class="label">Dose entered as</span>
+          <div class="radio-row">
+            <label class="check"><input type="radio" name="doseMode" value="units" checked> Units per dose (e.g. 1 tablet)</label>
+            <label class="check"><input type="radio" name="doseMode" value="strength"> Amount per dose (e.g. 500 mg)</label>
+          </div>
+        </div>
+        <div class="grid-2">
+          <div class="field"><label for="dosePerAdmin">Dose per administration * <span id="dose-unit-hint" class="muted"></span></label><input id="dosePerAdmin" name="dosePerAdmin" inputmode="decimal"></div>
+          <div class="field" id="strength-per-unit-field"><label for="strengthPerUnit">Strength per unit (number only) <span class="muted">e.g. 500 for 500 mg/tablet</span></label><input id="strengthPerUnit" name="strengthPerUnit" inputmode="decimal"></div>
+          <div class="field"><label for="freqMode">Frequency *</label>
+            <select id="freqMode" name="freqMode">
+              <option value="">— select —</option>
+              <option value="perDay">Times per day</option>
+              <option value="everyHours">Every N hours</option>
+              <option value="perWeek">Times per week</option>
+              <option value="prn">As needed (PRN)</option>
+              <option value="unclear">Unclear / variable</option>
+            </select></div>
+          <div class="field" id="freq-value-field"><label for="freqValue" id="freqValue-label">Value</label><input id="freqValue" name="freqValue" inputmode="decimal"></div>
+          <div class="field" id="prn-max-field" hidden><label for="prnMaxPerDay">PRN: maximum doses per day (if stated)</label><input id="prnMaxPerDay" name="prnMaxPerDay" inputmode="decimal"></div>
+          <div class="field"><label for="durationValue">Duration *</label>
+            <div class="inline"><input id="durationValue" name="durationValue" inputmode="decimal">
+            <select id="durationUnit" name="durationUnit" aria-label="Duration unit"><option value="days">days</option><option value="weeks">weeks</option></select></div></div>
+        </div>
+      </fieldset>
+
+      <fieldset>
+        <legend>Context (optional) <span class="tag tag-claim">Claim data</span></legend>
+        <div class="grid-3">
+          <div class="field span-3"><label for="diagnosis">Diagnosis / indication</label><input id="diagnosis" name="diagnosis"><small class="hint">Context only. Never used to infer a dose or duration.</small></div>
+          <div class="field"><label for="ageYears">Patient age (years)</label><input id="ageYears" name="ageYears" inputmode="decimal"></div>
+          <div class="field"><label for="weightKg">Patient weight (kg)</label><input id="weightKg" name="weightKg" inputmode="decimal"></div>
+        </div>
+        <p class="muted small">Do not enter names, ID numbers or other identifying details.</p>
+      </fieldset>
+
+      <details class="fieldset-details" id="ref-details">
+        <summary>External dosing reference (optional, must be cited) <span class="tag tag-ref">Reference</span></summary>
+        <p class="muted small">Use only an official or authoritative prescribing reference (for example the SFDA-approved product leaflet/SmPC) that matches this product and patient. Source, link and date are required. The reference is shown separately from the prescription.</p>
+        <div class="grid-2">
+          <div class="field"><label for="refSource">Source name</label><input id="refSource" name="refSource" placeholder="e.g. SFDA-approved SmPC, section 4.2"></div>
+          <div class="field"><label for="refUrl">Link</label><input id="refUrl" name="refUrl" type="url" placeholder="https://"></div>
+          <div class="field"><label for="refDate">Accessed or published date</label><input id="refDate" name="refDate" type="date"></div>
+          <div class="field"><label for="refMaxDailyUnits">Max daily amount in units</label><input id="refMaxDailyUnits" name="refMaxDailyUnits" inputmode="decimal"></div>
+          <div class="field"><label for="refMaxDailyStrength">Max daily dose by strength (same unit as strength per unit)</label><input id="refMaxDailyStrength" name="refMaxDailyStrength" inputmode="decimal"></div>
+          <div class="field span-2"><label for="refNotes">Relevant text and assumptions (population, age, weight, indication)</label><textarea id="refNotes" name="refNotes" rows="3"></textarea></div>
+        </div>
+        <label class="check"><input type="checkbox" id="refWeightBased" name="refWeightBased"> Reference dose is weight-based</label>
+        <label class="check"><input type="checkbox" id="refConflict" name="refConflict"> Sources conflict</label>
+      </details>
+
+      <div class="actions">
+        <button type="button" id="btn-example" class="btn">Load illustrative example</button>
+        <button type="button" id="btn-reset" class="btn">Reset claim</button>
+      </div>
+    </form>
+  </div>
+
+  <!-- ============ Results ============ -->
+  <aside class="col-results" aria-labelledby="results-h">
+    <section class="card results" id="results" aria-live="polite">
+      <div class="results-head">
+        <h2 id="results-h">Review summary</h2>
+        <div class="actions">
+          <button type="button" id="btn-print" class="btn btn-small">Print</button>
+          <button type="button" id="btn-export" class="btn btn-small">Download .txt</button>
+        </div>
+      </div>
+      <div id="example-banner" class="msg msg-example" hidden>
+        <strong>Illustrative example &mdash; not verified SFDA data.</strong> Pack size, price and prescription are made up for testing the arithmetic.
+      </div>
+      <div id="results-body"></div>
+      <p class="disclaimer">Generated <span id="gen-time"></span>. Review flags show where numbers differ and need a closer look. They are not proof of fraud or inappropriate care, and they do not assess clinical appropriateness.</p>
+    </section>
+  </aside>
+</main>
+
+<script src="fwa-core.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

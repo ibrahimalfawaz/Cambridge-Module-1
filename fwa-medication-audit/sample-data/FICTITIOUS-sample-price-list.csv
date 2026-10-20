@@ -1,0 +1,6 @@
+Trade Name,Scientific Name,Strength,Strength Unit,Pharmaceutical Form,Package Size,Public Price,Register Number
+DEMO-Exampletab (FICTITIOUS),Examplamol,500,mg,Tablet,20,5.00,DEMO-0001
+DEMO-Samplecap (FICTITIOUS),Samplacillin,250,mg,Capsule,"1 x 30",18.75,DEMO-0002
+DEMO-Testsyrup (FICTITIOUS),Examplamol,"120 mg/5",mL,Syrup,100,9.50,DEMO-0003
+"DEMO-Quoted, Name (FICTITIOUS)",Placebium,10,mg,Film-coated tablet,30,"1,250.00",DEMO-0004
+DEMO-Noprice (FICTITIOUS),Placebium,20,mg,Tablet,28,,DEMO-0005
